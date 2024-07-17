@@ -26,13 +26,25 @@ resource "azurerm_iothub" "iot_hub" {
     capacity = "1"
   }
 
+  
+}
+
+resource "time_sleep" "wait_60_seconds" {
+  depends_on = [azurerm_iothub.iot_hub]
+
+  create_duration = "60s"
+}
+
+resource "null_resource" "add_devices_script" {
   provisioner "local-exec" {
     command = templatefile("create_devices.tpl", {
-      iothubName        = "${azurerm_iothub.iot_hub.name}",
-      resourceGroupName = "${azurerm_resource_group.rg1.name}"
+      iothubName        = azurerm_iothub.iot_hub.name,
+      resourceGroupName = azurerm_resource_group.rg1.name
     })
     interpreter = ["Powershell", "-Command"]
   }
+
+  depends_on = [time_sleep.wait_60_seconds]
 }
 
 resource "azurerm_stream_analytics_job" "asa_job" {
@@ -67,45 +79,6 @@ resource "azurerm_stream_analytics_stream_input_iothub" "asa_in_iothub" {
   }
 }
 
-#in case of rerunning run .\SQL_config.ps1 -adminUserName TheFlorist -adminPassword 'tDm@>`W01Q7;' -databaseName FlowerPowerBase -serverName flowerpower
-#before creating later resources
-resource "azurerm_stream_analytics_output_mssql" "asa_out_numeric_rt" {
-  name                      = "NumericRealTimeData"
-  stream_analytics_job_name = azurerm_stream_analytics_job.asa_job.name
-  resource_group_name       = azurerm_stream_analytics_job.asa_job.resource_group_name
-
-  server   = azurerm_mssql_server.sql_server.fully_qualified_domain_name
-  user     = azurerm_mssql_server.sql_server.administrator_login
-  password = azurerm_mssql_server.sql_server.administrator_login_password
-  database = azurerm_mssql_database.database.name
-  table    = "NumericRealTimeData"
-}
-
-# resource "azurerm_stream_analytics_output_mssql" "sim_data" {
-#   name                      = "example-output-sql"
-#   stream_analytics_job_name = data.azurerm_stream_analytics_job.example.name
-#   resource_group_name       = data.azurerm_stream_analytics_job.example.resource_group_name
-
-#   server   = azurerm_sql_server.example.fully_qualified_domain_name
-#   user     = azurerm_sql_server.example.administrator_login
-#   password = azurerm_sql_server.example.administrator_login_password
-#   database = azurerm_sql_database.example.name
-#   table    = "ExampleTable"
-# }
-
-# resource "azurerm_stream_analytics_output_mssql" "asa_out_binary_rt" {
-#   name                      = "example-output-sql"
-#   stream_analytics_job_name = data.azurerm_stream_analytics_job.example.name
-#   resource_group_name       = data.azurerm_stream_analytics_job.example.resource_group_name
-
-#   server   = azurerm_sql_server.example.fully_qualified_domain_name
-#   user     = azurerm_sql_server.example.administrator_login
-#   password = azurerm_sql_server.example.administrator_login_password
-#   database = azurerm_sql_database.example.name
-#   table    = "ExampleTable"
-# }
-
-
 resource "azurerm_mssql_server" "sql_server" {
   name                         = lower("${var.project_name}")
   resource_group_name          = azurerm_resource_group.rg1.name
@@ -135,12 +108,50 @@ resource "azurerm_mssql_database" "database" {
 
   provisioner "local-exec" {
     command = templatefile("create_tables.tpl", {
-      serverName = "${azurerm_mssql_server.sql_server.name}",
-      databaseName = "${azurerm_mssql_database.database.name}",
-      adminUserName = "${azurerm_mssql_server.sql_server.administrator_login}",
-      adminPassword = "${azurerm_mssql_server.sql_server.administrator_login_password}"
+      serverName = azurerm_mssql_server.sql_server.name,
+      databaseName = self.name,
+      adminUserName = azurerm_mssql_server.sql_server.administrator_login,
+      adminPassword = azurerm_mssql_server.sql_server.administrator_login_password
     })
     interpreter = ["Powershell", "-Command"]
   }
 }
 
+#in case of rerunning run .\SQL_config.ps1 -adminUserName TheFlorist -adminPassword 'tDm@>`W01Q7;' -databaseName FlowerPowerBase -serverName flowerpower
+#before creating later resources
+
+# resource "azurerm_stream_analytics_output_mssql" "asa_out_numeric_rt" {
+#   name                      = "NumericRealTimeData"
+#   stream_analytics_job_name = azurerm_stream_analytics_job.asa_job.name
+#   resource_group_name       = azurerm_stream_analytics_job.asa_job.resource_group_name
+
+#   server   = azurerm_mssql_server.sql_server.fully_qualified_domain_name
+#   user     = azurerm_mssql_server.sql_server.administrator_login
+#   password = azurerm_mssql_server.sql_server.administrator_login_password
+#   database = azurerm_mssql_database.database.name
+#   table    = "NumericRealTimeData"
+# }
+
+# resource "azurerm_stream_analytics_output_mssql" "sim_data" {
+#   name                      = "example-output-sql"
+#   stream_analytics_job_name = data.azurerm_stream_analytics_job.example.name
+#   resource_group_name       = data.azurerm_stream_analytics_job.example.resource_group_name
+
+#   server   = azurerm_sql_server.example.fully_qualified_domain_name
+#   user     = azurerm_sql_server.example.administrator_login
+#   password = azurerm_sql_server.example.administrator_login_password
+#   database = azurerm_sql_database.example.name
+#   table    = "ExampleTable"
+# }
+
+# resource "azurerm_stream_analytics_output_mssql" "asa_out_binary_rt" {
+#   name                      = "example-output-sql"
+#   stream_analytics_job_name = data.azurerm_stream_analytics_job.example.name
+#   resource_group_name       = data.azurerm_stream_analytics_job.example.resource_group_name
+
+#   server   = azurerm_sql_server.example.fully_qualified_domain_name
+#   user     = azurerm_sql_server.example.administrator_login
+#   password = azurerm_sql_server.example.administrator_login_password
+#   database = azurerm_sql_database.example.name
+#   table    = "ExampleTable"
+# }

@@ -9,7 +9,7 @@ foreach($device in $devices){
     
     try{       
         az iot hub device-identity create --device-id $device --hub-name $iothubName 
-        Write-Host "Device $device created."
+        Write-Host "iothubName: $iothubName"
     } catch{
     
     }
