@@ -11,46 +11,35 @@ provider "azurerm" {
   features {}
 }
 
-resource "azurerm_resource_group" "rg1" {
-  name     = "${var.project_name}-Terra1"
+resource "azurerm_resource_group" "rg" {
+  name     = "${var.project_name}-Terra"
   location = var.project_location
 }
 
 resource "azurerm_iothub" "iot_hub" {
   name                = "${var.project_name}Hub"
-  resource_group_name = azurerm_resource_group.rg1.name
-  location            = azurerm_resource_group.rg1.location
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
 
   sku {
     name     = "B1"
     capacity = "1"
   }
 
-  
-}
-
-resource "time_sleep" "wait_60_seconds" {
-  depends_on = [azurerm_iothub.iot_hub]
-
-  create_duration = "60s"
-}
-
-resource "null_resource" "add_devices_script" {
   provisioner "local-exec" {
     command = templatefile("create_devices.tpl", {
       iothubName        = azurerm_iothub.iot_hub.name,
-      resourceGroupName = azurerm_resource_group.rg1.name
+      resourceGroupName = azurerm_resource_group.rg.name
     })
     interpreter = ["Powershell", "-Command"]
   }
-
-  depends_on = [time_sleep.wait_60_seconds]
+  
 }
 
 resource "azurerm_stream_analytics_job" "asa_job" {
   name                                     = "${var.project_name}Stream"
-  resource_group_name                      = azurerm_resource_group.rg1.name
-  location                                 = azurerm_resource_group.rg1.location
+  resource_group_name                      = azurerm_resource_group.rg.name
+  location                                 = azurerm_resource_group.rg.location
   compatibility_level                      = "1.2"
   data_locale                              = "en-GB"
   events_late_arrival_max_delay_in_seconds = 60
@@ -81,19 +70,26 @@ resource "azurerm_stream_analytics_stream_input_iothub" "asa_in_iothub" {
 
 resource "azurerm_mssql_server" "sql_server" {
   name                         = lower("${var.project_name}")
-  resource_group_name          = azurerm_resource_group.rg1.name
-  location                     = azurerm_resource_group.rg1.location
+  resource_group_name          = azurerm_resource_group.rg.name
+  location                     = azurerm_resource_group.rg.location
   version                      = "12.0"
   administrator_login          = "TheFlorist"
-  administrator_login_password = "tDm@>`W01Q7;"
+  administrator_login_password = "tDm@>`W01Q7"
   minimum_tls_version          = "1.2"
 }
 
 resource "azurerm_mssql_firewall_rule" "firewall_rule_pass_all" {
-  name             = "FirewallRule1"
+  name             = "FirewallRulePassAll"
+  server_id        = azurerm_mssql_server.sql_server.id
+  start_ip_address = "0.0.0.1"
+  end_ip_address   = "255.255.255.254"
+}
+
+resource "azurerm_mssql_firewall_rule" "firewall_rule_azure_exception" {
+  name             = "FirewallRuleAzureException"
   server_id        = azurerm_mssql_server.sql_server.id
   start_ip_address = "0.0.0.0"
-  end_ip_address   = "255.255.255.255"
+  end_ip_address   = "0.0.0.0"
 }
 
 resource "azurerm_mssql_database" "database" {
@@ -101,7 +97,7 @@ resource "azurerm_mssql_database" "database" {
   server_id      = azurerm_mssql_server.sql_server.id
   collation      = "SQL_Latin1_General_CP1_CI_AS"
   license_type   = "LicenseIncluded"
-  max_size_gb    = 4
+  max_size_gb    = 250
   read_scale     = false
   sku_name       = "S0"
   zone_redundant = false
@@ -120,20 +116,20 @@ resource "azurerm_mssql_database" "database" {
 #in case of rerunning run .\SQL_config.ps1 -adminUserName TheFlorist -adminPassword 'tDm@>`W01Q7;' -databaseName FlowerPowerBase -serverName flowerpower
 #before creating later resources
 
-# resource "azurerm_stream_analytics_output_mssql" "asa_out_numeric_rt" {
-#   name                      = "NumericRealTimeData"
-#   stream_analytics_job_name = azurerm_stream_analytics_job.asa_job.name
-#   resource_group_name       = azurerm_stream_analytics_job.asa_job.resource_group_name
+resource "azurerm_stream_analytics_output_mssql" "asa_out_numeric_rt" {
+  name                      = "NumericRealTimeData"
+  stream_analytics_job_name = azurerm_stream_analytics_job.asa_job.name
+  resource_group_name       = azurerm_stream_analytics_job.asa_job.resource_group_name
 
-#   server   = azurerm_mssql_server.sql_server.fully_qualified_domain_name
-#   user     = azurerm_mssql_server.sql_server.administrator_login
-#   password = azurerm_mssql_server.sql_server.administrator_login_password
-#   database = azurerm_mssql_database.database.name
-#   table    = "NumericRealTimeData"
-# }
+  server   = azurerm_mssql_server.sql_server.fully_qualified_domain_name
+  user     = azurerm_mssql_server.sql_server.administrator_login
+  password = azurerm_mssql_server.sql_server.administrator_login_password
+  database = azurerm_mssql_database.database.name
+  table    = "[dbo].[NumericRealTimeData]"
+}
 
 # resource "azurerm_stream_analytics_output_mssql" "sim_data" {
-#   name                      = "example-output-sql"
+#   name                      = "FlowerData"
 #   stream_analytics_job_name = data.azurerm_stream_analytics_job.example.name
 #   resource_group_name       = data.azurerm_stream_analytics_job.example.resource_group_name
 
@@ -144,14 +140,14 @@ resource "azurerm_mssql_database" "database" {
 #   table    = "ExampleTable"
 # }
 
-# resource "azurerm_stream_analytics_output_mssql" "asa_out_binary_rt" {
-#   name                      = "example-output-sql"
-#   stream_analytics_job_name = data.azurerm_stream_analytics_job.example.name
-#   resource_group_name       = data.azurerm_stream_analytics_job.example.resource_group_name
+resource "azurerm_stream_analytics_output_mssql" "asa_out_binary_rt" {
+  name                      = "BinaryRealTimeData"
+  stream_analytics_job_name = azurerm_stream_analytics_job.asa_job.name
+  resource_group_name       = azurerm_stream_analytics_job.asa_job.resource_group_name
 
-#   server   = azurerm_sql_server.example.fully_qualified_domain_name
-#   user     = azurerm_sql_server.example.administrator_login
-#   password = azurerm_sql_server.example.administrator_login_password
-#   database = azurerm_sql_database.example.name
-#   table    = "ExampleTable"
-# }
+  server   = azurerm_mssql_server.sql_server.fully_qualified_domain_name
+  user     = azurerm_mssql_server.sql_server.administrator_login
+  password = azurerm_mssql_server.sql_server.administrator_login_password
+  database = azurerm_mssql_database.database.name
+  table    = "[dbo].[BinaryRealTimeData]"
+}
