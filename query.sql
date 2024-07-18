@@ -15,7 +15,7 @@ WITH NumericData AS(
 )
 
 SELECT * INTO NumericRealTimeData FROM NumericData
-SELECT * INTO RealTimeData From NumericData
+-- SELECT * INTO RealTimeData From NumericData
 
 SELECT 
     entity_id AS ID,

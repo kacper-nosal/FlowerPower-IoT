@@ -141,7 +141,7 @@ resource "azurerm_stream_analytics_output_mssql" "asa_out_numeric_rt" {
 # }
 
 resource "azurerm_stream_analytics_output_mssql" "asa_out_binary_rt" {
-  name                      = "BinaryRealTimeData"
+  name                      = "BooleanRealTimeData"
   stream_analytics_job_name = azurerm_stream_analytics_job.asa_job.name
   resource_group_name       = azurerm_stream_analytics_job.asa_job.resource_group_name
 
@@ -149,5 +149,5 @@ resource "azurerm_stream_analytics_output_mssql" "asa_out_binary_rt" {
   user     = azurerm_mssql_server.sql_server.administrator_login
   password = azurerm_mssql_server.sql_server.administrator_login_password
   database = azurerm_mssql_database.database.name
-  table    = "[dbo].[BinaryRealTimeData]"
+  table    = "[dbo].[BooleanRealTimeData]"
 }
