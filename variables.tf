@@ -10,3 +10,7 @@ variable "project_name" {
 variable "project_location" {
   type = string
 }
+
+variable "web_app_location" {
+  type = string
+}

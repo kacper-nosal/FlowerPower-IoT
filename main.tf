@@ -2,7 +2,7 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "=3.0.0"
+      version = "=3.113.0"
     }
   }
 }
@@ -96,7 +96,7 @@ resource "azurerm_mssql_database" "database" {
   name           = "${var.project_name}Base"
   server_id      = azurerm_mssql_server.sql_server.id
   collation      = "SQL_Latin1_General_CP1_CI_AS"
-  license_type   = "LicenseIncluded"
+  # license_type   = "LicenseIncluded"
   max_size_gb    = 250
   read_scale     = false
   sku_name       = "S0"
@@ -113,7 +113,7 @@ resource "azurerm_mssql_database" "database" {
   }
 }
 
-#in case of rerunning run .\SQL_config.ps1 -adminUserName TheFlorist -adminPassword 'tDm@>`W01Q7;' -databaseName FlowerPowerBase -serverName flowerpower
+#in case of rerunning run .\SQL_config.ps1 -adminUserName TheFlorist -adminPassword 'tDm@>`W01Q7' -databaseName FlowerPowerBase -serverName flowerpower
 #before creating later resources
 
 resource "azurerm_stream_analytics_output_mssql" "asa_out_numeric_rt" {
@@ -151,3 +151,13 @@ resource "azurerm_stream_analytics_output_mssql" "asa_out_binary_rt" {
   database = azurerm_mssql_database.database.name
   table    = "[dbo].[BooleanRealTimeData]"
 }
+
+resource "azurerm_service_plan" "app_service_plan" {
+  name                = "${var.project_name}Plan"
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
+  os_type             = "Windows"
+  sku_name            = "B1"
+}
+
+
