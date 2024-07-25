@@ -11,6 +11,13 @@ provider "azurerm" {
   features {}
 }
 
+data "azurerm_client_config" "client" {}
+
+output "subscription_id" {
+  value = data.azurerm_client_config.client.subscription_id
+}
+
+
 resource "azurerm_resource_group" "rg" {
   name     = "${var.project_name}-Terra"
   location = var.project_location
@@ -33,7 +40,7 @@ resource "azurerm_iothub" "iot_hub" {
     })
     interpreter = ["Powershell", "-Command"]
   }
-  
+
 }
 
 resource "azurerm_stream_analytics_job" "asa_job" {
@@ -93,9 +100,9 @@ resource "azurerm_mssql_firewall_rule" "firewall_rule_azure_exception" {
 }
 
 resource "azurerm_mssql_database" "database" {
-  name           = "${var.project_name}Base"
-  server_id      = azurerm_mssql_server.sql_server.id
-  collation      = "SQL_Latin1_General_CP1_CI_AS"
+  name      = "${var.project_name}Base"
+  server_id = azurerm_mssql_server.sql_server.id
+  collation = "SQL_Latin1_General_CP1_CI_AS"
   # license_type   = "LicenseIncluded"
   max_size_gb    = 250
   read_scale     = false
@@ -104,8 +111,8 @@ resource "azurerm_mssql_database" "database" {
 
   provisioner "local-exec" {
     command = templatefile("create_tables.tpl", {
-      serverName = azurerm_mssql_server.sql_server.name,
-      databaseName = self.name,
+      serverName    = azurerm_mssql_server.sql_server.name,
+      databaseName  = self.name,
       adminUserName = azurerm_mssql_server.sql_server.administrator_login,
       adminPassword = azurerm_mssql_server.sql_server.administrator_login_password
     })
@@ -152,12 +159,58 @@ resource "azurerm_stream_analytics_output_mssql" "asa_out_binary_rt" {
   table    = "[dbo].[BooleanRealTimeData]"
 }
 
-resource "azurerm_service_plan" "app_service_plan" {
-  name                = "${var.project_name}Plan"
-  resource_group_name = azurerm_resource_group.rg.name
-  location            = azurerm_resource_group.rg.location
-  os_type             = "Windows"
-  sku_name            = "B1"
+
+resource "azurerm_storage_account" "storage" {
+  name                            = "flowerpowerstorage"
+  resource_group_name             = azurerm_resource_group.rg.name
+  location                        = azurerm_resource_group.rg.location
+  account_tier                    = "Standard"
+  account_replication_type        = "LRS"
+  default_to_oauth_authentication = true
 }
 
 
+resource "azurerm_service_plan" "app_service_plan" {
+  name                = "ASP-FlowerPowerTerra-b943"
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
+  os_type             = "Windows"
+  sku_name            = "Y1"
+}
+
+resource "azurerm_windows_function_app" "function_app" {
+  name                = "FlowerPowerFunctionApp"
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
+
+  storage_account_name       = azurerm_storage_account.storage.name
+  storage_account_access_key = azurerm_storage_account.storage.primary_access_key
+  service_plan_id            = azurerm_service_plan.app_service_plan.id
+
+  app_settings = {
+    APPLICATIONINSIGHTS_ENABLE_AGENT      = true
+    AzureWebJobsSecretStorageType         = "files"
+    AzureWebJobsStorage_ACCOUNT_KEY       = azurerm_storage_account.storage.primary_access_key
+    AzureWebJobsStorage_ACCOUNT_NAME      = azurerm_storage_account.storage.name
+    AzureWebJobsStorage_CONNECTION_STRING = azurerm_storage_account.storage.primary_connection_string
+    AzureWebJobsStorage_RESOURCE_GROUP    = azurerm_resource_group.rg.name
+    AzureWebJobsStorage_SUBSCRIPTION_ID   = data.azurerm_client_config.client.subscription_id
+    WEBSITE_RUN_FROM_PACKAGE              = "1"
+  }
+
+  site_config {
+
+    cors {
+      allowed_origins = [
+        "https://portal.azure.com",
+      ]
+      support_credentials = false
+    }
+  }
+}
+
+resource "azurerm_static_web_app" "static_web_app" {
+  name                = "FloristicData"
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = "westeurope"
+}
