@@ -1,3 +1,5 @@
 project_name     = "FlowerPower"
 project_location = "North Europe"
 web_app_location = "West Europe"
+sql_server_admin_username = "TheFlorist"
+sql_server_admin_password = "tDm@>`W01Q7"

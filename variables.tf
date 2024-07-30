@@ -14,3 +14,11 @@ variable "project_location" {
 variable "web_app_location" {
   type = string
 }
+
+variable "sql_server_admin_username" {
+  type = string
+}
+
+variable "sql_server_admin_password" {
+  type = string
+}

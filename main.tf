@@ -80,8 +80,8 @@ resource "azurerm_mssql_server" "sql_server" {
   resource_group_name          = azurerm_resource_group.rg.name
   location                     = azurerm_resource_group.rg.location
   version                      = "12.0"
-  administrator_login          = "TheFlorist"
-  administrator_login_password = "tDm@>`W01Q7"
+  administrator_login          = "${var.sql_server_admin_username}"
+  administrator_login_password = "${var.sql_server_admin_password}"
   minimum_tls_version          = "1.2"
 }
 
@@ -120,8 +120,7 @@ resource "azurerm_mssql_database" "database" {
   }
 }
 
-#in case of rerunning run .\SQL_config.ps1 -adminUserName TheFlorist -adminPassword 'tDm@>`W01Q7' -databaseName FlowerPowerBase -serverName flowerpower
-#before creating later resources
+#in case of provisioner failure run create_tables.tpl script before creating later resources
 
 resource "azurerm_stream_analytics_output_mssql" "asa_out_numeric_rt" {
   name                      = "NumericRealTimeData"
@@ -134,18 +133,6 @@ resource "azurerm_stream_analytics_output_mssql" "asa_out_numeric_rt" {
   database = azurerm_mssql_database.database.name
   table    = "[dbo].[NumericRealTimeData]"
 }
-
-# resource "azurerm_stream_analytics_output_mssql" "sim_data" {
-#   name                      = "FlowerData"
-#   stream_analytics_job_name = data.azurerm_stream_analytics_job.example.name
-#   resource_group_name       = data.azurerm_stream_analytics_job.example.resource_group_name
-
-#   server   = azurerm_sql_server.example.fully_qualified_domain_name
-#   user     = azurerm_sql_server.example.administrator_login
-#   password = azurerm_sql_server.example.administrator_login_password
-#   database = azurerm_sql_database.example.name
-#   table    = "ExampleTable"
-# }
 
 resource "azurerm_stream_analytics_output_mssql" "asa_out_binary_rt" {
   name                      = "BooleanRealTimeData"
